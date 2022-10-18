@@ -14,7 +14,7 @@
  * limitations under the License.
  */
 
-package com.dremio.iceberg.testdata;
+package com.dremio.iceberg.s3;
 
 import java.time.Duration;
 
@@ -29,13 +29,13 @@ public final class ApacheHttpConnectionUtil {
   private ApacheHttpConnectionUtil() {
   }
 
-  public static SdkHttpClient.Builder<?> initConnectionSettings(S3Configs conf) {
+  public static SdkHttpClient.Builder<?> initConnectionSettings() {
     final ApacheHttpClient.Builder httpBuilder = ApacheHttpClient.builder();
-    httpBuilder.maxConnections(1500);
+    httpBuilder.maxConnections(15000);
     httpBuilder.connectionTimeout(
-            Duration.ofSeconds(100));
+            Duration.ofSeconds(10000));
     httpBuilder.socketTimeout(
-            Duration.ofSeconds(100));
+            Duration.ofSeconds(10000));
 
     return httpBuilder;
   }

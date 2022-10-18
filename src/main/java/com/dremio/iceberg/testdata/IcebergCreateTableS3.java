@@ -3,12 +3,21 @@
  */
 package com.dremio.iceberg.testdata;
 
-import static com.dremio.iceberg.testdata.Constants.ACCESS_KEY;
-import static com.dremio.iceberg.testdata.Constants.SECRET_KEY;
+import static com.dremio.iceberg.utils.Constants.FILE_COUNT_END;
+import static com.dremio.iceberg.utils.Constants.FILE_COUNT_START;
+import static com.dremio.iceberg.utils.Constants.FILE_SIZES;
+import static com.dremio.iceberg.utils.Constants.KEY;
+import static com.dremio.iceberg.utils.Constants.PARTITION_END;
+import static com.dremio.iceberg.utils.Constants.PARTITION_KEY;
+import static com.dremio.iceberg.utils.Constants.PARTITION_START;
+import static com.dremio.iceberg.utils.Constants.SOURCE_BUCKET;
+import static com.dremio.iceberg.utils.Constants.TABLE_NAME;
 
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.List;
 import java.util.logging.Logger;
+import java.util.stream.Collectors;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.AppendFiles;
@@ -21,10 +30,12 @@ import org.apache.iceberg.Table;
 import org.apache.iceberg.hadoop.HadoopTables;
 import org.apache.iceberg.types.Types;
 
-public class IcebergS3TestDataMaker {
+import com.dremio.iceberg.utils.Constants;
+
+public class IcebergCreateTableS3 {
 
     public static void main(String[] args) {
-        IcebergS3TestDataMaker testDataMaker = new IcebergS3TestDataMaker("s3a://dataplane/testdata/optimize/table_with_365_partitions");
+        IcebergCreateTableS3 testDataMaker = new IcebergCreateTableS3("s3a://"+SOURCE_BUCKET+"/"+"testdata/optimize/"+TABLE_NAME);
         testDataMaker.createSnapshotWithCopies();
     }
 
@@ -37,7 +48,7 @@ public class IcebergS3TestDataMaker {
     private final Configuration conf = getConf();
     private final Table table;
 
-    public IcebergS3TestDataMaker(String tableLocation) {
+    public IcebergCreateTableS3(String tableLocation) {
         this.tableLocation = tableLocation;
         //This schema is based on the files which got created inside the folders:
         this.schema = new Schema(
@@ -64,7 +75,7 @@ public class IcebergS3TestDataMaker {
                 Types.NestedField.optional(20, "ss_net_paid", Types.DoubleType.get()),
                 Types.NestedField.optional(21, "ss_net_paid_inc_tax", Types.DoubleType.get()),
                 Types.NestedField.optional(22, "ss_net_profit", Types.DoubleType.get()));
-        this.partitionSpec = PartitionSpec.builderFor(schema).withSpecId(0).identity("ss_sold_date_sk").build();
+        this.partitionSpec = PartitionSpec.builderFor(schema).withSpecId(0).identity(PARTITION_KEY).build();
 
         this.table = new HadoopTables(conf).create(schema, partitionSpec, this.tableLocation);
         LOGGER.info("Created table " + tableLocation);
@@ -72,29 +83,31 @@ public class IcebergS3TestDataMaker {
 
     private Configuration getConf() {
         Configuration conf = new Configuration();
-        conf.set("fs.s3a.access.key", ACCESS_KEY);
-        conf.set("fs.s3a.secret.key", SECRET_KEY);
+        conf.set("fs.s3a.access.key", Constants.S3_ACCESS_KEY);
+        conf.set("fs.s3a.secret.key", Constants.S3_SECRET_KEY);
         conf.set("fs.s3a.aws.credentials.provider", "org.apache.hadoop.fs.s3a.SimpleAWSCredentialsProvider");
         return conf;
     }
 
     private void createSnapshotWithCopies() {
+        LOGGER.info("Adding data files now.");
         AppendFiles tableAppend = table.newAppend();
         for (FileMetadata file: getFiles()) {
-            for (int partitionId = 0; partitionId < 365; partitionId++) {
-                for (int fileId = 0; fileId < 100; fileId++) {
+            for (int partitionId = PARTITION_START; partitionId < PARTITION_END; partitionId++) {
+                for (int fileId = FILE_COUNT_START; fileId < FILE_COUNT_END; fileId++) {
                     DataFile dataFile = DataFiles.builder(partitionSpec)
-                            .withPath("s3://dataplane/testdata/optimize/mixed_size_dataset/ss_sold_date_sk="+partitionId+"/"+file.name+"_"+fileId+".parquet")
-                            .withPartitionPath("ss_sold_date_sk="+partitionId)
+                            .withPath("s3://"+SOURCE_BUCKET+"/"+KEY+"/"+PARTITION_KEY+"="+partitionId+"/"+file.name+"_"+fileId+".parquet")
+                            .withPartitionPath(PARTITION_KEY+"="+partitionId)
                             .withFormat(FileFormat.PARQUET)
                             .withFileSizeInBytes(file.fileSize)
                             .withRecordCount(file.count)
                             .build();
                     tableAppend.appendFile(dataFile);
+                    LOGGER.info("Added data file with fileSize: "+ file.name+" partitionId: "+partitionId+", fileId: "+fileId);
                 }
             }
         }
-
+        LOGGER.info("Committing with new data files.");
         tableAppend.commit();
         LOGGER.info("Written snapshot " + table.currentSnapshot());
     }
@@ -111,13 +124,13 @@ public class IcebergS3TestDataMaker {
         files.add(new FileMetadata("256mb", 268441678L, 3522388L));
         files.add(new FileMetadata("512mb", 537721359L, 7023189L));
         files.add(new FileMetadata("1024mb", 1002142775L, 13128223L));
-        return files;
+        return files.stream().filter(fileMetadata -> Arrays.stream(FILE_SIZES).anyMatch( f-> f.equals(fileMetadata.name))).collect(Collectors.toList());
     }
 
     private static class FileMetadata {
-        private String name;
-        private long fileSize;
-        private long count;
+        private final String name;
+        private final long fileSize;
+        private final long count;
 
         public FileMetadata(String name, long fileSize, long count) {
             this.name = name;
@@ -125,11 +138,5 @@ public class IcebergS3TestDataMaker {
             this.count = count;
         }
     }
-
-
-
-
-
-
 
 }

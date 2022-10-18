@@ -3,6 +3,10 @@ package com.dremio.iceberg.testdata;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
+import com.dremio.iceberg.s3.ApacheHttpConnectionUtil;
+import com.dremio.iceberg.s3.NamedThreadFactory;
+import com.dremio.iceberg.s3.S3Configs;
+
 import software.amazon.awssdk.auth.credentials.AwsBasicCredentials;
 import software.amazon.awssdk.auth.credentials.AwsCredentialsProvider;
 import software.amazon.awssdk.auth.credentials.StaticCredentialsProvider;
@@ -30,7 +34,7 @@ public class GetS3Client {
     private static <T extends SdkSyncClientBuilder<T,?> & AwsClientBuilder<T,?>> T syncConfigClientBuilder(T builder, S3Configs s3Configs) {
 
         builder.credentialsProvider(getAsync2Provider(s3Configs))
-                .httpClientBuilder(ApacheHttpConnectionUtil.initConnectionSettings(s3Configs));
+                .httpClientBuilder(ApacheHttpConnectionUtil.initConnectionSettings());
 
         builder.region(Region.of(s3Configs.getRegion()));
         return builder;

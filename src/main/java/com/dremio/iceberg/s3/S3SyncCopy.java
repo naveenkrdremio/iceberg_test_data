@@ -1,6 +1,7 @@
-package com.dremio.iceberg.testdata;
+package com.dremio.iceberg.s3;
 
-import static com.dremio.iceberg.testdata.Constants.DEST_BUCKET;
+
+import static com.dremio.iceberg.utils.Constants.DEST_BUCKET;
 
 import software.amazon.awssdk.services.s3.S3Client;
 import software.amazon.awssdk.services.s3.model.CopyObjectRequest;

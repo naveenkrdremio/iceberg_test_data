@@ -1,4 +1,4 @@
-package com.dremio.iceberg.testdata;
+package com.dremio.iceberg.s3;
 
 public class S3Configs {
 
