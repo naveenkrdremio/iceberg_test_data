@@ -6,6 +6,7 @@ package com.dremio.iceberg.testdata;
 import static com.dremio.iceberg.utils.Constants.FILE_COUNT_END;
 import static com.dremio.iceberg.utils.Constants.FILE_COUNT_START;
 import static com.dremio.iceberg.utils.Constants.FILE_SIZES;
+import static com.dremio.iceberg.utils.Constants.IS_PARTITIONED;
 import static com.dremio.iceberg.utils.Constants.KEY;
 import static com.dremio.iceberg.utils.Constants.PARTITION_END;
 import static com.dremio.iceberg.utils.Constants.PARTITION_KEY;
@@ -21,7 +22,6 @@ import java.util.stream.Collectors;
 
 import org.apache.hadoop.conf.Configuration;
 import org.apache.iceberg.AppendFiles;
-import org.apache.iceberg.DataFile;
 import org.apache.iceberg.DataFiles;
 import org.apache.iceberg.FileFormat;
 import org.apache.iceberg.PartitionSpec;
@@ -52,17 +52,17 @@ public class IcebergCreateTableS3 {
         this.tableLocation = tableLocation;
         //This schema is based on the files which got created inside the folders:
         this.schema = new Schema(
-                Types.NestedField.optional(0, "ss_sold_date_sk", Types.IntegerType.get()),
-                Types.NestedField.optional(1, "ss_sold_time_sk", Types.IntegerType.get()),
-                Types.NestedField.optional(2, "ss_item_sk", Types.IntegerType.get()),
-                Types.NestedField.optional(3, "ss_customer_sk", Types.IntegerType.get()),
-                Types.NestedField.optional(4, "ss_cdemo_sk", Types.IntegerType.get()),
-                Types.NestedField.optional(5, "ss_hdemo_sk", Types.IntegerType.get()),
-                Types.NestedField.optional(6, "ss_addr_sk", Types.IntegerType.get()),
-                Types.NestedField.optional(7, "ss_store_sk", Types.IntegerType.get()),
-                Types.NestedField.optional(8, "ss_promo_sk", Types.IntegerType.get()),
-                Types.NestedField.optional(9, "ss_ticket_number", Types.IntegerType.get()),
-                Types.NestedField.optional(10, "ss_quantity", Types.IntegerType.get()),
+                Types.NestedField.optional(0, "ss_sold_date_sk", Types.LongType.get()),
+                Types.NestedField.optional(1, "ss_sold_time_sk", Types.LongType.get()),
+                Types.NestedField.optional(2, "ss_item_sk", Types.LongType.get()),
+                Types.NestedField.optional(3, "ss_customer_sk", Types.LongType.get()),
+                Types.NestedField.optional(4, "ss_cdemo_sk", Types.LongType.get()),
+                Types.NestedField.optional(5, "ss_hdemo_sk", Types.LongType.get()),
+                Types.NestedField.optional(6, "ss_addr_sk", Types.LongType.get()),
+                Types.NestedField.optional(7, "ss_store_sk", Types.LongType.get()),
+                Types.NestedField.optional(8, "ss_promo_sk", Types.LongType.get()),
+                Types.NestedField.optional(9, "ss_ticket_number", Types.LongType.get()),
+                Types.NestedField.optional(10, "ss_quantity", Types.LongType.get()),
                 Types.NestedField.optional(11, "ss_wholesale_cost", Types.DoubleType.get()),
                 Types.NestedField.optional(12, "ss_list_price", Types.DoubleType.get()),
                 Types.NestedField.optional(13, "ss_sales_price", Types.DoubleType.get()),
@@ -77,7 +77,11 @@ public class IcebergCreateTableS3 {
                 Types.NestedField.optional(22, "ss_net_profit", Types.DoubleType.get()));
         this.partitionSpec = PartitionSpec.builderFor(schema).withSpecId(0).identity(PARTITION_KEY).build();
 
-        this.table = new HadoopTables(conf).create(schema, partitionSpec, this.tableLocation);
+        if (IS_PARTITIONED) {
+            this.table = new HadoopTables(conf).create(schema, partitionSpec, this.tableLocation);
+        } else {
+            this.table = new HadoopTables(conf).create(schema, PartitionSpec.unpartitioned(), this.tableLocation);
+        }
         LOGGER.info("Created table " + tableLocation);
     }
 
@@ -95,14 +99,19 @@ public class IcebergCreateTableS3 {
         for (FileMetadata file: getFiles()) {
             for (int partitionId = PARTITION_START; partitionId < PARTITION_END; partitionId++) {
                 for (int fileId = FILE_COUNT_START; fileId < FILE_COUNT_END; fileId++) {
-                    DataFile dataFile = DataFiles.builder(partitionSpec)
+                    DataFiles.Builder builder = DataFiles.builder(PartitionSpec.unpartitioned());
+                    if (IS_PARTITIONED) {
+                        builder = DataFiles.builder(partitionSpec);
+                    }
+                    builder
                             .withPath("s3://"+SOURCE_BUCKET+"/"+KEY+"/"+PARTITION_KEY+"="+partitionId+"/"+file.name+"_"+fileId+".parquet")
-                            .withPartitionPath(PARTITION_KEY+"="+partitionId)
                             .withFormat(FileFormat.PARQUET)
                             .withFileSizeInBytes(file.fileSize)
-                            .withRecordCount(file.count)
-                            .build();
-                    tableAppend.appendFile(dataFile);
+                            .withRecordCount(file.count);
+                    if (IS_PARTITIONED) {
+                        builder.withPartitionPath(PARTITION_KEY+"="+partitionId);
+                    }
+                    tableAppend.appendFile(builder.build());
                     LOGGER.info("Added data file with fileSize: "+ file.name+" partitionId: "+partitionId+", fileId: "+fileId);
                 }
             }
