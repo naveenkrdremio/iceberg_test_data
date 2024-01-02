@@ -13,9 +13,9 @@
         <maven.compiler.target>8</maven.compiler.target>
 
         <!-- TODO: Try with stock iceberg -->
-        <iceberg.version>0.14.1</iceberg.version>
+        <iceberg.version>1.1.0</iceberg.version>
         <aws.sdk.version>2.16.104</aws.sdk.version>
-        <hadoop.version>2.7.3</hadoop.version>
+        <hadoop.version>3.3.2</hadoop.version>
     </properties>
 
     <dependencies>
@@ -111,5 +111,47 @@
                 </exclusion>
             </exclusions>
         </dependency>
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-avro</artifactId>
+            <version>1.12.2</version>
+        </dependency>
+
+        <dependency>
+            <groupId>org.apache.parquet</groupId>
+            <artifactId>parquet-hadoop</artifactId>
+            <version>1.12.0</version>
+        </dependency>
+        <dependency>
+            <groupId>org.projectnessie</groupId>
+            <artifactId>nessie-client</artifactId>
+            <version>0.53.1</version>
+        </dependency>
+        <dependency>
+            <groupId>com.googlecode.json-simple</groupId>
+            <artifactId>json-simple</artifactId>
+            <version>1.1.1</version>
+        </dependency>
+
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-jar-plugin</artifactId>
+                <version>3.1.0</version>
+                <configuration>
+                    <archive>
+                        <manifest>
+                            <addClasspath>true</addClasspath>
+                            <mainClass>
+                                com.dremio.iceberg.performance.IcebergTestToolDriver
+                            </mainClass>
+                        </manifest>
+                    </archive>
+                </configuration>
+            </plugin>
+        </plugins>
+    </build>
 </project>
